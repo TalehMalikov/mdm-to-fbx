@@ -18,6 +18,8 @@ SMPL_TO_MIXAMO = [
     "LeftHand", "RightHand", "LeftHandIndex1", "RightHandIndex1",
 ]
 
+SMPL_TO_BLENDER_SCALE = 100.0  # SMPL meters -> Adam centimeters
+
 def parse_args():
     argv = sys.argv
     if "--" in argv:
@@ -99,7 +101,11 @@ def apply_motion(armature, thetas, root_t):
             bone.keyframe_insert(data_path="rotation_euler", frame=frame_idx)
             if bone_name == "Hips":
                 rel = root_t[frame_idx] - root_start
-                bone.location = (rel[0], -rel[2], 0.0)
+                bone.location = (
+                    rel[0] * SMPL_TO_BLENDER_SCALE,
+                    rel[1] * SMPL_TO_BLENDER_SCALE,
+                    rel[2] * SMPL_TO_BLENDER_SCALE,
+                )
                 bone.keyframe_insert(data_path="location", frame=frame_idx)
 
     print(f"[blender_retarget] Applied {T} frames")

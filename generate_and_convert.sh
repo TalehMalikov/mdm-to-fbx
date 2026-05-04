@@ -8,6 +8,7 @@ MDM_DIR="/home/tmalikov/motion-diffusion-model"
 CONVERTER_DIR="/home/tmalikov/mdm-to-fbx"
 WIN_TEMP="/mnt/c/Users/ROG/AppData/Local/Temp/mdm_temp"
 BLENDER="/mnt/c/Program Files/Blender Foundation/Blender 5.1/blender.exe"
+EMS_AVATAR="/mnt/c/Users/ROG/OneDrive - The University of Chicago/Desktop/Uchicago/HCI/GenerativeEMS/frontend/avatar"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 MOTION_NAME="${TIMESTAMP}_$(echo "$PROMPT" | tr ' ' '_' | tr -dc '[:alnum:]_' | cut -c1-20)"
 SAVE_DIR="$MDM_DIR/save/$MOTION_NAME"
@@ -80,9 +81,11 @@ cp "$CONVERTER_DIR/assets/adam.fbx" "$WIN_TEMP/adam.fbx"
   --adam "C:\\Users\\ROG\\AppData\\Local\\Temp\\mdm_temp\\adam.fbx"
 
 cp "$WIN_TEMP/output.fbx" "$OUTPUT"
+cp "$OUTPUT" "$EMS_AVATAR/"   # ← added this line
 echo "[4/4] Done in $(($(date +%s) - T4))s"
 
 echo "================================"
 echo "Total time: $(($(date +%s) - START))s"
 echo "FBX saved to: $OUTPUT"
+echo "Copied to EMS: $EMS_AVATAR"
 echo "================================"

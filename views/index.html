@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motion Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: rgba(255,255,255,0.07);
+      --accent: #5b6ef5;
+      --accent2: #a78bfa;
+      --text: #e8e8f0;
+      --muted: rgba(232,232,240,0.35);
+      --success: #34d399;
+      --error: #f87171;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* noise grain overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.4;
+    }
+
+    #canvas-container {
+      position: fixed; inset: 0; z-index: 1;
+    }
+
+    /* ── Top bar ── */
+    #topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px;
+      background: linear-gradient(to bottom, rgba(10,10,15,0.9), transparent);
+      pointer-events: none;
+    }
+
+    #logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px; letter-spacing: 2px;
+      color: var(--muted);
+      pointer-events: auto;
+    }
+
+    #logo span { color: var(--accent2); }
+
+    #status-pill {
+      font-size: 11px; font-family: 'Space Mono', monospace;
+      padding: 5px 12px; border-radius: 20px;
+      background: rgba(91,110,245,0.12);
+      border: 1px solid rgba(91,110,245,0.25);
+      color: var(--accent2);
+      pointer-events: auto;
+      transition: all 0.3s;
+    }
+
+    #status-pill.generating {
+      background: rgba(167,139,250,0.15);
+      border-color: rgba(167,139,250,0.4);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    #status-pill.ready {
+      background: rgba(52,211,153,0.12);
+      border-color: rgba(52,211,153,0.3);
+      color: var(--success);
+    }
+
+    #status-pill.error {
+      background: rgba(248,113,113,0.12);
+      border-color: rgba(248,113,113,0.3);
+      color: var(--error);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ── Camera controls ── */
+    #cam-controls {
+      position: fixed; top: 70px; right: 20px; z-index: 10;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .cam-btn {
+      width: 36px; height: 36px;
+      background: rgba(18,18,26,0.8); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; transition: all 0.2s; backdrop-filter: blur(10px);
+    }
+
+    .cam-btn:hover { border-color: rgba(91,110,245,0.4); color: var(--text); }
+
+    /* ── Bottom prompt area ── */
+    #prompt-area {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+      padding: 20px 24px 28px;
+      background: linear-gradient(to top, rgba(10,10,15,0.98) 60%, transparent);
+    }
+
+    #prompt-wrap {
+      max-width: 680px; margin: 0 auto;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    #prompt-label {
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted); font-family: 'Space Mono', monospace;
+    }
+
+    #prompt-row {
+      display: flex; gap: 10px; align-items: flex-end;
+    }
+
+    #prompt-input {
+      flex: 1;
+      background: rgba(18,18,26,0.9);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 18px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      resize: none;
+      min-height: 52px; max-height: 120px;
+      outline: none;
+      transition: border-color 0.2s;
+      backdrop-filter: blur(10px);
+    }
+
+    #prompt-input::placeholder { color: var(--muted); }
+    #prompt-input:focus { border-color: rgba(91,110,245,0.5); }
+
+    #generate-btn {
+      width: 52px; height: 52px; flex-shrink: 0;
+      background: var(--accent);
+      border: none; border-radius: 14px;
+      cursor: pointer; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; transition: all 0.2s;
+      box-shadow: 0 4px 20px rgba(91,110,245,0.4);
+    }
+
+    #generate-btn:hover { background: #6b7ef8; transform: translateY(-1px); }
+    #generate-btn:active { transform: translateY(0); }
+    #generate-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    #generate-btn .spinner-icon {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    #generate-btn.loading .send-icon { display: none; }
+    #generate-btn.loading .spinner-icon { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #hint {
+      font-size: 11px; color: var(--muted);
+      text-align: center; font-family: 'Space Mono', monospace;
+    }
+
+    /* ── Progress steps ── */
+    #progress-steps {
+      position: fixed; left: 24px; bottom: 120px; z-index: 10;
+      display: flex; flex-direction: column; gap: 6px;
+      opacity: 0; transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    #progress-steps.visible { opacity: 1; }
+
+    .step {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; font-family: 'Space Mono', monospace;
+      color: var(--muted); transition: color 0.3s;
+    }
+
+    .step.active { color: var(--accent2); }
+    .step.done { color: var(--success); }
+
+    .step-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
+      background: rgba(18,18,26,0.95); color: var(--text);
+      padding: 10px 20px; border-radius: 12px;
+      font-size: 13px; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; z-index: 100;
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+    #toast.show { opacity: 1; }
+
+    #info {
+      position: fixed; top: 70px; left: 24px;
+      color: var(--muted); font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      line-height: 2; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div id="topbar">
+  <div id="logo">MOTION<span>_</span>GEN</div>
+  <div id="status-pill">● IDLE</div>
+</div>
+
+<div id="cam-controls">
+  <button class="cam-btn" onclick="resetCamera()" title="Reset camera">⟳</button>
+  <button class="cam-btn" id="play-btn" onclick="togglePlay()" title="Play/Pause">⏸</button>
+</div>
+
+<div id="info">drag to orbit<br>scroll to zoom</div>
+
+<!-- Progress steps -->
+<div id="progress-steps">
+  <div class="step" id="step-mdm">
+    <div class="step-dot"></div> generating motion
+  </div>
+  <div class="step" id="step-smpl">
+    <div class="step-dot"></div> extracting smpl params
+  </div>
+  <div class="step" id="step-pkl">
+    <div class="step-dot"></div> converting to pkl
+  </div>
+  <div class="step" id="step-fbx">
+    <div class="step-dot"></div> exporting fbx
+  </div>
+  <div class="step" id="step-load">
+    <div class="step-dot"></div> loading animation
+  </div>
+</div>
+
+<!-- Bottom prompt -->
+<div id="prompt-area">
+  <div id="prompt-wrap">
+    <div id="prompt-label">describe a motion</div>
+    <div id="prompt-row">
+      <textarea id="prompt-input" placeholder="a person waves their hand…" rows="1"></textarea>
+      <button id="generate-btn" onclick="generate()">
+        <span class="send-icon">↑</span>
+        <div class="spinner-icon"></div>
+      </button>
+    </div>
+    <div id="hint">enter to generate · shift+enter for new line</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+// ── CONFIG ────────────────────────────────────────────────────────────────
+const DEFAULT_AVATAR = '../avatar/default_male.fbx';
+const BACKEND_URL = 'http://localhost:5000/generate'; // your backend endpoint
+const FBX_OUTPUT = '../results/fbx/output_animation.fbx';     // where backend saves FBX
+// ─────────────────────────────────────────────────────────────────────────
+
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a0f);
+scene.fog = new THREE.FogExp2(0x0a0a0f, 0.035);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 1000);
+camera.position.set(0, 1.5, 4);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.update();
+
+// Lighting
+scene.add(new THREE.AmbientLight(0x8090c0, 0.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+dirLight.position.set(5, 10, 7);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0x5b6ef5, 0.6);
+fillLight.position.set(-5, 3, -5);
+scene.add(fillLight);
+const rimLight = new THREE.DirectionalLight(0xa78bfa, 0.4);
+rimLight.position.set(0, 5, -8);
+scene.add(rimLight);
+
+// Floor
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(30, 30),
+  new THREE.MeshLambertMaterial({ color: 0x0d0d14 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+const grid = new THREE.GridHelper(30, 30, 0x1a1a2e, 0x12121a);
+grid.position.y = 0.001;
+scene.add(grid);
+
+let avatarModel = null;
+let mixer = null;
+let clock = new THREE.Clock();
+let isPlaying = true;
+const fbxLoader = new FBXLoader();
+
+function fitModel(model) {
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const scale = 1.8 / size.y;
+  model.scale.setScalar(scale);
+  box.setFromObject(model);
+  model.position.x -= box.getCenter(new THREE.Vector3()).x;
+  model.position.y -= box.min.y;
+  model.position.z -= box.getCenter(new THREE.Vector3()).z;
+  const h = size.y * scale;
+  controls.target.set(0, h / 2, 0);
+  camera.position.set(0, h / 2, h * 1.8);
+  controls.update();
+}
+
+// Load default avatar
+fbxLoader.load(DEFAULT_AVATAR, (fbx) => {
+  fbx.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+  fitModel(fbx);
+  scene.add(fbx);
+  avatarModel = fbx;
+  mixer = new THREE.AnimationMixer(fbx);
+  setStatus('ready', '● READY');
+  showToast('✓ avatar loaded');
+}, undefined, (err) => {
+  setStatus('error', '● NO AVATAR');
+  console.error(err);
+});
+
+// ── Status helpers ────────────────────────────────────────────────────────
+const statusPill = document.getElementById('status-pill');
+function setStatus(type, text) {
+  statusPill.className = 'status-pill';
+  if (type) statusPill.classList.add(type);
+  statusPill.id = 'status-pill';
+  statusPill.textContent = text;
+}
+
+function setStep(stepId, state) {
+  const el = document.getElementById(stepId);
+  if (!el) return;
+  el.className = 'step ' + state;
+}
+
+function resetSteps() {
+  ['step-mdm','step-smpl','step-pkl','step-fbx','step-load'].forEach(id => {
+    setStep(id, '');
+  });
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────
+window.generate = async function() {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  if (!prompt) return;
+
+  const btn = document.getElementById('generate-btn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  setStatus('generating', '● GENERATING');
+
+  const stepsEl = document.getElementById('progress-steps');
+  stepsEl.classList.add('visible');
+  resetSteps();
+  setStep('step-mdm', 'active');
+
+  try {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+
+    if (!res.ok) throw new Error('Backend error');
+
+    const data = await res.json();
+
+    // Simulate step progress (backend handles all at once)
+    setStep('step-mdm', 'done');
+    setStep('step-smpl', 'done');
+    setStep('step-pkl', 'done');
+    setStep('step-fbx', 'done');
+    setStep('step-load', 'active');
+
+    // Load the new animation FBX
+    const fbxPath = '../' + (data.fbx_path || FBX_OUTPUT);
+    await loadAnimationFBX(fbxPath + '?t=' + Date.now()); // cache bust
+
+    setStep('step-load', 'done');
+    setStatus('ready', '● READY');
+    showToast('✓ motion loaded');
+
+  } catch (err) {
+    console.error(err);
+    setStatus('error', '● ERROR');
+    showToast('✗ generation failed');
+    resetSteps();
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    setTimeout(() => stepsEl.classList.remove('visible'), 3000);
+  }
+}
+
+function loadAnimationFBX(path) {
+  return new Promise((resolve, reject) => {
+    fbxLoader.load(path, (fbx) => {
+      if (!fbx.animations || fbx.animations.length === 0) {
+        reject(new Error('No animations'));
+        return;
+      }
+      if (mixer) {
+        mixer.stopAllAction();
+        const clip = fbx.animations[0];
+        mixer.clipAction(clip).reset().setLoop(THREE.LoopRepeat, Infinity).play();
+      }
+      resolve();
+    }, undefined, reject);
+  });
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────
+window.resetCamera = () => {
+  if (avatarModel) {
+    const box = new THREE.Box3().setFromObject(avatarModel);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    camera.position.set(center.x, center.y, center.z + size.y * 1.8);
+    controls.target.copy(center);
+  } else {
+    camera.position.set(0, 1.5, 4);
+    controls.target.set(0, 1, 0);
+  }
+  controls.update();
+};
+
+window.togglePlay = () => {
+  isPlaying = !isPlaying;
+  document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
+  if (isPlaying) clock.start();
+};
+
+// Enter to submit
+document.getElementById('prompt-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    generate();
+  }
+});
+
+// Toast
+const toastEl = document.getElementById('toast');
+let toastTimer;
+window.showToast = (msg, dur = 2500) => {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), dur);
+};
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+(function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  if (isPlaying && mixer) mixer.update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+</script>
+</body>
+</html>

@@ -10,6 +10,8 @@ import subprocess
 import os
 import time
 import glob
+import time
+
 
 app = Flask(__name__)
 CORS(app)
@@ -40,6 +42,7 @@ def generate():
 
     try:
         # Step 1 — MDM generation
+        t1 = time.time()
         print("[1/4] Running MDM...")
         save_dir = os.path.join(MDM_DIR, f"save/{timestamp}_{prompt[:20].replace(' ', '_')}")
         os.makedirs(save_dir, exist_ok=True)
@@ -58,8 +61,10 @@ def generate():
         if result.returncode != 0:
             print(result.stderr)
             return jsonify({'error': 'MDM generation failed'}), 500
+        print(f"[1/4] MDM took {time.time()-t1:.1f}s")
 
         # Step 2 — render_mesh to get SMPL params
+        t2 = time.time()  
         print("[2/4] Running render_mesh...")
         fake_mp4 = os.path.join(save_dir, "sample00_rep00.mp4")
         # Create empty file just for path parsing
@@ -77,8 +82,10 @@ def generate():
         if result.returncode != 0:
             print(result.stderr)
             return jsonify({'error': 'render_mesh failed'}), 500
+        print(f"[2/4] render_mesh took {time.time()-t2:.1f}s")
 
         # Step 3 — Convert to pkl
+        t3 = time.time()
         print("[3/4] Converting to pkl...")
         smpl_npy = os.path.join(save_dir, "sample00_rep00_smpl_params.npy")
         pkl_path = f"{RESULTS_PICKLE}/{timestamp}.pkl"
@@ -103,8 +110,10 @@ def generate():
         if result.returncode != 0:
             print(result.stderr)
             return jsonify({'error': 'pkl conversion failed'}), 500
+        print(f"[3/4] pkl took {time.time()-t3:.1f}s")
 
         # Step 4 — Blender headless export FBX
+        t4 = time.time()
         print("[4/4] Exporting FBX with Blender...")
         fbx_output = f"{RESULTS_FBX}/output_animation.fbx"
         win_pkl = pkl_path.replace('/mnt/c/', 'C:\\').replace('/', '\\')
@@ -124,6 +133,7 @@ def generate():
         if result.returncode != 0:
             print(result.stderr)
             return jsonify({'error': 'Blender export failed'}), 500
+        print(f"[4/4] Blender export took {time.time()-t4:.1f}s")
 
         # Copy FBX to frontend avatar folder
         final_fbx = f"{RESULTS_FBX}/output_animation.fbx"

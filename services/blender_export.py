@@ -92,6 +92,17 @@ for frame in range(n_frames):
             bone.rotation_euler = poses[i]
             bone.keyframe_insert(data_path="rotation_euler", frame=frame + 1)
 
+# Apply root translation with correct axis mapping
+# MDM: X=left/right, Y=up/down, Z=forward/back
+# Blender: X=left/right, Y=forward/back, Z=up
+pelvis = obj.pose.bones['Pelvis']
+pelvis.bone.use_local_location = True
+for frame in range(n_frames):
+    bpy.context.scene.frame_set(frame + 1)
+    trans = smpl_trans[frame]
+    pelvis.location = (trans[0], trans[1]- smpl_trans[0][1], trans[2])
+    pelvis.keyframe_insert(data_path="location", frame=frame + 1)
+
 print("[Blender] Exporting FBX...")
 
 # Select all objects

@@ -55,7 +55,8 @@ def generate():
             f"--model_path ./save/humanml_enc_512_50steps/model000750000.pt "
             f"--text_prompt '{prompt}' "
             f"--num_samples 1 --num_repetitions 1 "
-            f"--output_dir '{save_dir}'"
+            f"--output_dir '{save_dir}' "
+            f"--device 0"
         ]
         result = subprocess.run(mdm_cmd, capture_output=True, text=True)
         if result.returncode != 0:

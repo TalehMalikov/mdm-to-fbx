@@ -6,11 +6,7 @@ Usage: conda activate mdm && python server.py
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import subprocess
-import os
-import time
-import glob
-import time
+import subprocess, os, time, glob, time
 
 
 app = Flask(__name__)

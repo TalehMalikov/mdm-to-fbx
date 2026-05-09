@@ -3,11 +3,7 @@ Blender headless script — applies SMPL animation and exports FBX
 Run via: blender --background --python blender_export.py -- --pkl input.pkl --output output.fbx
 """
 
-import bpy
-import sys
-import pickle
-import numpy as np
-import os
+import bpy, sys, pickle, numpy as np, os
 
 # Parse args after --
 argv = sys.argv

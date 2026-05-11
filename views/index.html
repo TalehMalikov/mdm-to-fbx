@@ -28,7 +28,6 @@
       height: 100vh;
     }
 
-    /* noise grain overlay */
     body::before {
       content: '';
       position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -36,27 +35,15 @@
       opacity: 0.4;
     }
 
-    #canvas-container {
-      position: fixed; inset: 0; z-index: 1;
-    }
+    #canvas-container { position: fixed; inset: 0; z-index: 1; }
 
-    /* ── Top bar ── */
     #topbar {
       position: fixed; top: 0; left: 0; right: 0; z-index: 10;
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex; align-items: center; justify-content: flex-end;
       padding: 16px 24px;
       background: linear-gradient(to bottom, rgba(10,10,15,0.9), transparent);
       pointer-events: none;
     }
-
-    #logo {
-      font-family: 'Space Mono', monospace;
-      font-size: 13px; letter-spacing: 2px;
-      color: var(--muted);
-      pointer-events: auto;
-    }
-
-    #logo span { color: var(--accent2); }
 
     #status-pill {
       font-size: 11px; font-family: 'Space Mono', monospace;
@@ -91,7 +78,6 @@
       50% { opacity: 0.5; }
     }
 
-    /* ── Camera controls ── */
     #cam-controls {
       position: fixed; top: 70px; right: 20px; z-index: 10;
       display: flex; flex-direction: column; gap: 8px;
@@ -107,7 +93,6 @@
 
     .cam-btn:hover { border-color: rgba(91,110,245,0.4); color: var(--text); }
 
-    /* ── Bottom prompt area ── */
     #prompt-area {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
       padding: 20px 24px 28px;
@@ -124,9 +109,7 @@
       color: var(--muted); font-family: 'Space Mono', monospace;
     }
 
-    #prompt-row {
-      display: flex; gap: 10px; align-items: flex-end;
-    }
+    #prompt-row { display: flex; gap: 10px; align-items: flex-end; }
 
     #prompt-input {
       flex: 1;
@@ -180,7 +163,6 @@
       text-align: center; font-family: 'Space Mono', monospace;
     }
 
-    /* ── Progress steps ── */
     #progress-steps {
       position: fixed; left: 24px; bottom: 120px; z-index: 10;
       display: flex; flex-direction: column; gap: 6px;
@@ -192,19 +174,25 @@
 
     .step {
       display: flex; align-items: center; gap: 8px;
-      font-size: 11px; font-family: 'Space Mono', monospace;
-      color: var(--muted); transition: color 0.3s;
+      font-size: 13px; font-family: 'Space Mono', monospace;
+      color: var(--muted); transition: color 0.3s, font-size 0.3s;
     }
 
-    .step.active { color: var(--accent2); }
-    .step.done { color: var(--success); }
+    .step.active { color: #fbbf24; font-size: 16px; font-weight: 700; }
+    .step.done { color: var(--success); font-size: 13px; font-weight: 400; }
 
     .step-dot {
       width: 6px; height: 6px; border-radius: 50%;
       background: currentColor; flex-shrink: 0;
     }
 
-    /* ── Toast ── */
+    .step-joke {
+      display: none;
+      font-size: 11px; color: #fbbf24;
+      font-family: 'Space Mono', monospace;
+    }
+    .step.active .step-joke { display: inline; }
+
     #toast {
       position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
       background: rgba(18,18,26,0.95); color: var(--text);
@@ -215,13 +203,6 @@
       backdrop-filter: blur(10px);
     }
     #toast.show { opacity: 1; }
-
-    #info {
-      position: fixed; top: 70px; left: 24px;
-      color: var(--muted); font-size: 11px;
-      font-family: 'Space Mono', monospace;
-      line-height: 2; z-index: 10;
-    }
   </style>
 </head>
 <body>
@@ -229,7 +210,6 @@
 <div id="canvas-container"></div>
 
 <div id="topbar">
-  <div id="logo">MOTION<span>_</span>GEN</div>
   <div id="status-pill">● IDLE</div>
 </div>
 
@@ -238,28 +218,24 @@
   <button class="cam-btn" id="play-btn" onclick="togglePlay()" title="Play/Pause">⏸</button>
 </div>
 
-<div id="info">drag to orbit<br>scroll to zoom</div>
-
-<!-- Progress steps -->
 <div id="progress-steps">
   <div class="step" id="step-mdm">
-    <div class="step-dot"></div> generating motion
+    <div class="step-dot"></div> generating motion <span class="step-joke">grab a coffee. seriously. ☕</span>
   </div>
   <div class="step" id="step-smpl">
-    <div class="step-dot"></div> extracting smpl params
+    <div class="step-dot"></div> extracting smpl params <span class="step-joke">still here? respect. 🫡</span>
   </div>
   <div class="step" id="step-pkl">
-    <div class="step-dot"></div> converting to pkl
+    <div class="step-dot"></div> converting to pkl <span class="step-joke">patience required. ⏳</span>
   </div>
   <div class="step" id="step-fbx">
-    <div class="step-dot"></div> exporting fbx
+    <div class="step-dot"></div> exporting fbx <span class="step-joke">please don't leave. 🙏</span>
   </div>
   <div class="step" id="step-load">
-    <div class="step-dot"></div> loading animation
+    <div class="step-dot"></div> loading animation <span class="step-joke">almost. we promise. 🤞</span>
   </div>
 </div>
 
-<!-- Bottom prompt -->
 <div id="prompt-area">
   <div id="prompt-wrap">
     <div id="prompt-label">describe a motion</div>
@@ -407,6 +383,8 @@ function resetSteps() {
   });
 }
 
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
 // ── Generate ──────────────────────────────────────────────────────────────
 window.generate = async function() {
   const prompt = document.getElementById('prompt-input').value.trim();
@@ -422,27 +400,31 @@ window.generate = async function() {
   resetSteps();
   setStep('step-mdm', 'active');
 
+  // Fire request and step through visually as it runs
+  const fetchPromise = fetch(BACKEND_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+
+  // Simulate step progression while waiting (rough timing)
+  await delay(23000);
+  setStep('step-mdm', 'done'); setStep('step-smpl', 'active');
+  await delay(20000);
+  setStep('step-smpl', 'done'); setStep('step-pkl', 'active');
+  await delay(2000);
+  setStep('step-pkl', 'done'); setStep('step-fbx', 'active');
+
   try {
-    const res = await fetch(BACKEND_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
-    });
-
+    const res = await fetchPromise;
     if (!res.ok) throw new Error('Backend error');
-
     const data = await res.json();
 
-    // Simulate step progress (backend handles all at once)
-    setStep('step-mdm', 'done');
-    setStep('step-smpl', 'done');
-    setStep('step-pkl', 'done');
     setStep('step-fbx', 'done');
     setStep('step-load', 'active');
 
-    // Load the new animation FBX
     const fbxPath = '../' + (data.fbx_path || FBX_OUTPUT);
-    await loadAnimationFBX(fbxPath + '?t=' + Date.now()); // cache bust
+    await loadAnimationFBX(fbxPath + '?t=' + Date.now());
 
     setStep('step-load', 'done');
     setStatus('ready', '● READY');
@@ -498,7 +480,6 @@ window.togglePlay = () => {
   if (isPlaying) clock.start();
 };
 
-// Enter to submit
 document.getElementById('prompt-input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -506,7 +487,6 @@ document.getElementById('prompt-input').addEventListener('keydown', e => {
   }
 });
 
-// Toast
 const toastEl = document.getElementById('toast');
 let toastTimer;
 window.showToast = (msg, dur = 2500) => {

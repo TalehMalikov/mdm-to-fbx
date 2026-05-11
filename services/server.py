@@ -137,6 +137,9 @@ def generate():
         subprocess.run(["cp", fbx_output, final_fbx])
 
         print(f"[DONE] FBX saved to {final_fbx}")
+
+        print(f"[TOTAL] Total pipeline took {time.time()-t1:.1f}s")
+
         return jsonify({
             'success': True,
             'fbx_path': 'results/fbx/output_animation.fbx',

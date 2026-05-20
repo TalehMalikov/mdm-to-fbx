@@ -79,13 +79,52 @@ bpy.context.scene.render.fps = 20
 
 print(f"[Blender] Applying {n_frames} frames...")
 
+def rotvec_to_euler(rotvec):
+    import numpy as np
+    angle = np.linalg.norm(rotvec)
+    if angle < 1e-6:
+        return (0.0, 0.0, 0.0)
+    axis = rotvec / angle
+    # Rodrigues → rotation matrix
+    c, s = np.cos(angle), np.sin(angle)
+    t = 1 - c
+    x, y, z = axis
+    R = np.array([
+        [t*x*x + c,   t*x*y - s*z, t*x*z + s*y],
+        [t*x*y + s*z, t*y*y + c,   t*y*z - s*x],
+        [t*x*z - s*y, t*y*z + s*x, t*z*z + c  ]
+    ])
+    # Matrix → XYZ Euler
+    sy = np.sqrt(R[0,0]**2 + R[1,0]**2)
+    if sy > 1e-6:
+        ex = np.arctan2( R[2,1], R[2,2])
+        ey = np.arctan2(-R[2,0], sy)
+        ez = np.arctan2( R[1,0], R[0,0])
+    else:
+        ex = np.arctan2(-R[1,2], R[1,1])
+        ey = np.arctan2(-R[2,0], sy)
+        ez = 0.0
+    return (float(ex), float(ey), float(ez))
+
+# bone_names = [
+#     'Pelvis', 'L_Hip', 'R_Hip', 'Spine1', 'L_Knee', 'R_Knee',
+#     'Spine2', 'L_Ankle', 'R_Ankle', 'Spine3', 'L_Foot', 'R_Foot',
+#     'Neck', 'L_Collar', 'R_Collar', 'Head', 'L_Shoulder', 'R_Shoulder',
+#     'L_Elbow', 'R_Elbow', 'L_Wrist', 'R_Wrist', 'L_Hand', 'R_Hand'
+# ]
+
+flip_x_bones = {'L_Shoulder', 'R_Shoulder', 'L_Collar', 'R_Collar'}
+
 for frame in range(n_frames):
     bpy.context.scene.frame_set(frame + 1)
     poses = smpl_poses[frame].reshape(24, 3)
     for i, bone_name in enumerate(bone_names):
         if bone_name in obj.pose.bones:
             bone = obj.pose.bones[bone_name]
-            bone.rotation_euler = poses[i]
+            ex, ey, ez = rotvec_to_euler(poses[i])
+            if bone_name in flip_x_bones:
+                ex, ey = -ex, -ey
+            bone.rotation_euler = (ex, ey, ez)
             bone.keyframe_insert(data_path="rotation_euler", frame=frame + 1)
 
 # Apply root translation with correct axis mapping
@@ -97,6 +136,8 @@ for frame in range(n_frames):
     bpy.context.scene.frame_set(frame + 1)
     trans = smpl_trans[frame]
     pelvis.location = (trans[0], trans[1]- smpl_trans[0][1], trans[2])
+    #pelvis.location = (trans[0], -trans[2], trans[1] - smpl_trans[0][1])
+    
     pelvis.keyframe_insert(data_path="location", frame=frame + 1)
 
 print("[Blender] Exporting FBX...")

@@ -90,20 +90,12 @@ def generate():
         convert_cmd = [
             "bash", "-c",
             f"source ~/miniconda3/etc/profile.d/conda.sh && conda activate mdm && "
-            f"cd {MDM_DIR} && python3 -c \""
-            f"import numpy as np, torch, pickle; "
-            f"import utils.rotation_conversions as geometry; "
-            f"data = np.load('{smpl_npy}', allow_pickle=True).item(); "
-            f"thetas = torch.tensor(data['thetas']).permute(2, 0, 1); "
-            f"rot_matrices = geometry.rotation_6d_to_matrix(thetas); "
-            f"axis_angles = geometry.matrix_to_axis_angle(rot_matrices); "
-            f"smpl_poses = axis_angles.numpy().reshape(-1, 72); "
-            f"smpl_trans = data['root_translation'].T; "
-            f"pkl_out = {{'smpl_poses': smpl_poses.astype('float32'), 'smpl_trans': smpl_trans.astype('float32'), 'smpl_scaling': [1.0]}}; "
-            f"pickle.dump(pkl_out, open('{pkl_path}', 'wb'), protocol=2); "
-            f"print('pkl done')\""
+            f"python '{PROJECT_DIR}/services/convert_pkl.py' '{smpl_npy}' '{pkl_path}'"
         ]
+        print(f"Running convert_cmd: {' '.join(convert_cmd)}")
         result = subprocess.run(convert_cmd, capture_output=True, text=True)
+        print("[convert stdout]", result.stdout)   # ← add this
+        print("[convert stderr]", result.stderr)   # ← add this
         if result.returncode != 0:
             print(result.stderr)
             return jsonify({'error': 'pkl conversion failed'}), 500
